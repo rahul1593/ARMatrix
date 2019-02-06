@@ -1,10 +1,10 @@
 /*
- * MATRICS
- * Source file for functions in "matrics.h".
+ * ARMATRIX
+ * Source file for functions in "armatrix.h".
  * 
  * Author       : Rahul Bhartari
  * Date Created : Dec 1, 2018
- * License      : GPL2
+ * License      : LGPL2.1
  */
 
 #include "matrics.h"
