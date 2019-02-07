@@ -12,10 +12,20 @@
 #ifndef _MATRICS_H_
 #define _MATRICS_H_
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <math.h>
+#ifdef MODE_C
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <stdint.h>
+    #include <math.h>
+#else
+    #include <iostream>
+    #include <vector>
+    #include <cmath>
+    #include <cstdlib>
+    #include <cstdint>
+
+    using namespace std;
+#endif
 
 #define mtx_type    double
 
@@ -37,18 +47,68 @@
 #define OP_REM      16
 #define OP_RELU     17
 
+// matrix data type definitions
+#define AMTX_UI8    0   // unsigned and signed 8/16/32/64-bit types
+#define AMTX_UI16   1
+#define AMTX_UI32   2
+#define AMTX_UI64   3
+#define AMTX_I8     4
+#define AMTX_I16    5
+#define AMTX_I32    6
+#define AMTX_I64    7
+#define AMTX_F32    8   // single and double precision floating types
+#define AMTX_F64    9
+#define AMTX_UCR    10  // character type
+#define AMTX_ANY    11  // user defined type, input as class object
 
+typedef struct{
+    int x,y;
+} Index2D;
+
+typedef struct{
+    int x,y,z;
+} Index3D;
 
 class NDMat{
-    private:
+private:
+    int                 type;           // data type of the matrix
+    vector<int>         shape;          // matrix dimensions, outermost to innermost
+    int                 dlen;           // length of data array
+    void                *data;          // pointer to the arrray of any specified data type
+    vector<Index2D>     joinIndx;       // set of indexes to join disjoint data, used in referencing sliced matrices
+                                        // data is stored in row major array, type depends on user
+    bool                is_sparse;      // is a sparse matrix with a lot of zeros, eg, identity matrix
+    vector<vector<int>> sp_data;    // index data for sparse matrix
+public:
+    // constructor with shape as a vector, default type is AMTX_F32, i.e, float32
+    NDMat(vector<int> shape, int type=AMTX_F32, void* type_object=(void*)NULL);
+    NDMat(vector<int> shape, int type=AMTX_F32, void* init_value=(void*)NULL, void* type_object=(void*)NULL);
+    NDMat(vector<int> shape, vector<int> padding, int type=AMTX_F32, void* type_object=(void*)NULL);
+    NDMat(vector<int> shape, vector<int> padding, int type=AMTX_F32, void* init_value=(void*)NULL, void* type_object=(void*)NULL);
+    // destructor for NDMat object
+    ~NDMat();
 
+    // create using current object, with given padding in each dimension
+    NDMat NDMatFrom(NDMat src_mat);
+    NDMat NDMatFrom(NDMat src_mat, vector<int> padding);
 
-    protected:
+    // create a duplicate matrix by copying the current matrix
+    NDMat copy();
 
+    // change the data type of the matrix
+    void toType(int type, void* type_object=(void*)NULL);
 
-    public:
+    // create zero initialized matrix similar to current matrix
+    NDMat zeros();
 
+    // create a submatrix by slicing the current matrix
+    NDMat slice(vector<Index2D> axis_min_max);  // duplicate data in new matrix
+    NDMat vslice(vector<Index2D> axis_min_max); // slice but refer to original data
 
+    // reshape the matrix
+    void reshape(vector<int> shape);
+
+    // create a copy of cu
 };
 
 
