@@ -1,6 +1,6 @@
 /*
  * ARMATRIX
- * Source file for functions in "armatrix.h".
+ * C Source file for functions in "armatrix.h".
  * 
  * Author       : Rahul Bhartari
  * Date Created : Dec 1, 2018
