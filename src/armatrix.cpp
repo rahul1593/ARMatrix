@@ -1,6 +1,6 @@
 /*
  * ARMATRIX.CPP
- * Source file for functions in "matrics.h".
+ * C++ Source file for functions in "matrics.h".
  * 
  * Author       : Rahul Bhartari
  * Date Created : Feb 10, 2019
