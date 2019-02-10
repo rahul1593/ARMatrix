@@ -1,5 +1,5 @@
 /*
- * ARMATRIX
+ * ARMATRIX.H
  * This is Multi-dimensional matrix operations library.It contains the required functions 
  * for operating on multi-dimensional matrices. It also contains some other mathematical 
  * functions like convolutions, correlations, etc.
@@ -12,11 +12,15 @@
 #ifndef _MATRICS_H_
 #define _MATRICS_H_
 
+#include <stdarg.h>
+
 #ifdef MODE_C
     #include <stdlib.h>
     #include <stdio.h>
     #include <stdint.h>
     #include <math.h>
+
+    #define mtx_type    double
 #else
     #include <iostream>
     #include <vector>
@@ -24,11 +28,10 @@
     #include <cstdlib>
     #include <cstdint>
 
-    using namespace std;
+    //using namespace std;
 #endif
 
-#define mtx_type    double
-
+// operation definitions
 #define OP_ADD      1
 #define OP_SUB      2
 #define OP_MUL      3
@@ -49,17 +52,14 @@
 
 // matrix data type definitions
 #define AMTX_UI8    0   // unsigned and signed 8/16/32/64-bit types
-#define AMTX_UI16   1
-#define AMTX_UI32   2
-#define AMTX_UI64   3
-#define AMTX_I8     4
-#define AMTX_I16    5
-#define AMTX_I32    6
-#define AMTX_I64    7
-#define AMTX_F32    8   // single and double precision floating types
-#define AMTX_F64    9
-#define AMTX_UCR    10  // character type
-#define AMTX_ANY    11  // user defined type, input as class object
+#define AMTX_UI32   1
+#define AMTX_UI64   2
+#define AMTX_I8     3
+#define AMTX_I32    4
+#define AMTX_I64    5
+#define AMTX_F32    6   // single and double precision floating types
+#define AMTX_F64    7
+#define AMTX_ANY    8   // user defined type, input as class object
 
 typedef struct{
     int x,y;
@@ -69,18 +69,36 @@ typedef struct{
     int x,y,z;
 } Point3D;
 
-class NDMat{
+#ifndef MODE_C
+
+template <typename mtx_type> class NDMat{
 private:
-    int                 type;           // data type of the matrix
-    vector<int>         shape;          // matrix dimensions, outermost to innermost
-    int                 dlen;           // length of data array
-    void                *data;          // pointer to the arrray of any specified data type
-    vector<Point2D>     joinIndx;       // set of indexes to join disjoint data, used in referencing sliced matrices
-                                        // data is stored in row major array, type depends on user
-    bool                is_sparse;      // is a sparse matrix with a lot of zeros, eg, identity matrix
-    vector<vector<int>> sp_data;        // index data for sparse matrix
+    int                     type;           // data type of the matrix
+    std::vector<int>        shape;          // matrix dimensions, outermost to innermost
+    int                     dlen;           // length of data array
+    std::vector<mtx_type>   data;           // vector of any specified data type, data is stored in row major vector, type depends on usage
+/*
+    bool                    is_submat;          // is a child submatrix or not
+    bool                    has_submat;         // does it has subtrices or not
+    NDMat<mtx_type>   *parent_mat=NULL;         // pointer to parent matrix of this matrix
+    std::vector<NDMat<mtx_type>*> submat_list;  // list of pointers to submatrices
+    std::vector<Point2D>    join_indx;          // set of indexes to join disjoint data, used in referencing sliced matrices
+*/
+    bool                    is_sparse;          // is a sparse matrix with a lot of zeros, eg, identity matrix
+    std::vector<std::vector<int>> sp_data;      // index data for sparse matrix
+    // Sparse optimization support will be added later on
+protected:
+    // check feasibility for his matrix to be converted and stored as a sparse matrix
+    //bool __checkSparseFeasibility();
+    // convert and store this matrix as a sparse matrix
+    //bool __converToSparse();
+
+    // check dimension compatibility for broadcasting and matrix dot product
+    std::vector<int> __checkCompatibleBroadcastDim(NDMat<mtx_type> A, NDMat<mtx_type> B);    // if yes return normalized dimension for matrix with less number of dimensions
+    bool __checkCompatibleDotProductDim(NDMat<mtx_type> A, NDMat<mtx_type> B);
+
 public:
-    /*  NDMat: Constructor with shape as a vector, default type is AMTX_F32, i.e, float32.
+    /*  Constructor with shape as a vector, default type is AMTX_F32, i.e, float32.
         Arguments:
             shape       : Vector defining the dimensionality of the n-D matrix, from higher to lower dimension
             padding     : (optional) The size of extra padding (of zeros) on each side for each of the dimensions
@@ -90,33 +108,40 @@ public:
         
         Return: Object of class NDMat having given (or default) attributes.
     */
-    NDMat(vector<int> shape, int type=AMTX_F32, void* type_object=(void*)NULL);
-    NDMat(vector<int> shape, int type=AMTX_F32, void* init_value=(void*)NULL, void* type_object=(void*)NULL);
-    NDMat(vector<int> shape, vector<int> padding, int type=AMTX_F32, void* type_object=(void*)NULL);
-    NDMat(vector<int> shape, vector<int> padding, int type=AMTX_F32, void* init_value=(void*)NULL, void* type_object=(void*)NULL);
+    NDMat(const NDMat<mtx_type> &src_mat);
+    NDMat(std::vector<int> shape, mtx_type init_value = 0);
+    
     // destructor for NDMat object
     ~NDMat();
+
+    // generate an identity matrix of given shape and data type
+    static NDMat<mtx_type> identity(int side);
+
+    // accessor and mutator methods
+    // get shape of this matrix
+    std::vector<int> getShape();
+    
+    // check if this matrix is sparse
+    bool isSparse();
+    
+    // get total number of elements in this matrix
+    int len();
+
+    // Reshape the matrix
+    void reshape(std::vector<int> shape);
+
+    // change the data type of the matrix
+    NDMat<mtx_type> asType(int type);
 
     // print this matrix on console
     void print();
 
-    /*  NDMatFrom: Create NDMat using given given object, with given padding in each dimension
-        Arguments:
-            src_mat : Source matrix of type NDMat
-            padding : Extra padding (of zeros) for each dimension of this matrix
-        Return: Object of class NDMat having similar properties as source class
-    */
-    static NDMat NDMatFrom(NDMat src_mat);
-    static NDMat NDMatFrom(NDMat src_mat, vector<int> padding);
-
-    // create a duplicate matrix by copying the current matrix
-    NDMat copy();
-
-    // change the data type of the matrix
-    void toType(int type, void* type_object=(void*)NULL);
+    // create a duplicate matrix by copying the current matrix, with and without padding
+    NDMat<mtx_type> copy();
+    NDMat<mtx_type> copy(std::vector<int> padding);
 
     // create zero initialized matrix similar to current matrix
-    NDMat zeros();
+    static NDMat<mtx_type> zeros_like(NDMat<mtx_type> src_mat);
 
     /*  Create a submatrix by slicing the current matrix
         Arguments:
@@ -124,30 +149,130 @@ public:
         Return: Object of class NDMat representing the submatrix
         Variations:
             slice   : This function creates a completely new object and copies data from source matrix
-            vslice  : This function creates an object in which data points to source matrix and uses 'joinIndex' varaible
+            vslice  : This function creates an object in which data points to source matrix and uses 'joinIndex' variable
                       for stiching the data together.
     */
-    NDMat slice(vector<Point2D> axis_min_max);  // duplicate data in new matrix
-    NDMat vslice(vector<Point2D> axis_min_max); // slice but refer to original data
+    NDMat<mtx_type> slice(std::vector<Point2D> axis_min_max);  // duplicate data in new matrix
+    NDMat<mtx_type> vslice(std::vector<Point2D> axis_min_max); // slice but refer to original data
 
-    // Reshape the matrix
-    void reshape(vector<int> shape);
+    /*  Assign values for a slice of this matrix
+        Arguments:
+            axis_min_max : Vector containing ranges for each dimension to be sliced
+    */
+   void assignSlice(std::vector<Point2D> axis_min_max, NDMat<mtx_type> set_val);
 
-    // Transpose of this matrix (at given axis or whole) with copied data
-    NDMat T();
-    NDMat T(int axis);
+    /*  Mask the matrix and return the masked copy
+        Arguments:
+            condition   : masking condition
+            axis        : axis on which masking needs to be done, default to '-1' for all values
+            val         : pointer to the value to be set where 'condition' is true
+    */
+    NDMat<mtx_type> maskDup(NDMat<bool> condition, mtx_type val, int axis = -1);
+    void mask(NDMat<bool> condition, mtx_type val, int axis = -1);
+
+    /*  Perform the operation defined by user on each element, axis or dimension of given matrix
+        Arguments:
+            src_mat     : source matrix to be operated on
+            op_function : function to operate on data
+            axis        : axis on which operation needs to be done, default to '-1' for all values
+    */
+    NDMat<mtx_type> operateDup(mtx_type *(func)(mtx_type *), int axis = -1);
+    void operate(mtx_type *(func)(mtx_type *), int axis = -1);
+
+    // reverse a matrix around the given axis (default to '-1' for all values)
+    NDMat<mtx_type> reverseDup(int axis = -1);    // returns a duplicate matrix
+    void reverse(int axis = -1);        // in place reverse
+
+    // Transpose of this matrix with copied data or in place
+    NDMat<mtx_type> transposeDup();
+    void transpose();
 
     // Inverse of this matrix
-    NDMat I();
+    NDMat<mtx_type> inverseDup();
+    void inverse();
 
     // dot product of two matrices
-    NDMat dot(NDMat A, NDMat B);
+    NDMat<mtx_type> dot(NDMat<mtx_type> B);
 
     // add two matrices
-    NDMat add(NDMat A, NDMat B);
+    NDMat<mtx_type> add(NDMat<mtx_type> B);
+
+    // subtract matrix B from A
+    NDMat<mtx_type> sub(NDMat<mtx_type> B);
+
+    // elementwise product
+    NDMat<mtx_type> mul(NDMat<mtx_type> B);
+
+    // elementwise division
+    NDMat<mtx_type> div(NDMat<mtx_type> B);
+
+    // scale a matrix, i.e, multiply by a constant pointed by 'c'
+    NDMat<mtx_type> scaleDup(mtx_type c);
+    void scale(mtx_type c);
+    
+    // Overloaded arithmetic operators for easy arithmetic
+    // assign a matrix to another
+    NDMat<mtx_type> &operator=(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> &operator=(mtx_type val);
+
+    // add two matrices
+    NDMat<mtx_type> operator+(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> operator+(mtx_type val);
+    NDMat<mtx_type> &operator+=(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> &operator+=(mtx_type val);
+
+    // subtract one matrix from another matrix
+    NDMat<mtx_type> operator-(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> operator-(mtx_type val);
+    NDMat<mtx_type> &operator-=(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> &operator-=(mtx_type val);
+
+    // elementwise multiply two matrices
+    NDMat<mtx_type> operator*(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> operator*(mtx_type val);
+    NDMat<mtx_type> &operator*=(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> &operator*=(mtx_type val);
+    
+    // elementwise divide one matrix by another
+    NDMat<mtx_type> operator/(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> operator/(mtx_type val);
+    NDMat<mtx_type> &operator/=(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> &operator/=(mtx_type val);
+
+    // elementwise mod one matrix by another
+    NDMat<mtx_type> operator%(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> operator%(mtx_type val);
+    NDMat<mtx_type> &operator%=(NDMat<mtx_type> &m2);
+    NDMat<mtx_type> &operator%=(mtx_type val);
+
+    // Overloaded comparison operators
+    friend NDMat<bool> operator<(NDMat<mtx_type> &m1, NDMat<mtx_type> &m2);
+    friend NDMat<bool> operator>(NDMat<mtx_type> &m1, NDMat<mtx_type> &m2);
+    friend NDMat<bool> operator>=(NDMat<mtx_type> &m1, NDMat<mtx_type> &m2);
+    friend NDMat<bool> operator<=(NDMat<mtx_type> &m1, NDMat<mtx_type> &m2);
+    friend NDMat<bool> operator!=(NDMat<mtx_type> &m1, NDMat<mtx_type> &m2);
+    friend NDMat<bool> operator==(NDMat<mtx_type> &m1, NDMat<mtx_type> &m2);
+
+    friend NDMat<bool> operator<(NDMat<mtx_type> &m1, mtx_type val);
+    friend NDMat<bool> operator>(NDMat<mtx_type> &m1, mtx_type val);
+    friend NDMat<bool> operator>=(NDMat<mtx_type> &m1, mtx_type val);
+    friend NDMat<bool> operator<=(NDMat<mtx_type> &m1, mtx_type val);
+    friend NDMat<bool> operator!=(NDMat<mtx_type> &m1, mtx_type val);
+    friend NDMat<bool> operator==(NDMat<mtx_type> &m1, mtx_type val);
+
+
+    // Overloaded stream operator
+    friend NDMat<mtx_type> &operator << (std::ostream &out, NDMat<mtx_type> &src_mat);
+
+    // Overloaded function operator to get any value
+    // Takes dimension index as arguments, returns the value or submatrix address
+    NDMat<mtx_type> &operator()(...);
+
+    // operator overloading for masking
+    NDMat<mtx_type> operator[](NDMat<bool> condition);
 };
 
-
+#else
 /*
  * Data structure to store the matrix
  */
@@ -243,5 +368,6 @@ void mtx_activation(Matrix* A, int activation_type, Matrix* C);
 void mtx_fft(Matrix* A, Matrix* C);
 
 */
+#endif
 
 #endif
