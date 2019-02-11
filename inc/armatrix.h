@@ -62,19 +62,21 @@
 #define AMTX_ANY    8   // user defined type, input as class object
 
 typedef struct{
-    int x,y;
+    int x, y;
 } Point2D;
 
 typedef struct{
-    int x,y,z;
+    int x, y, z;
 } Point3D;
 
 #ifndef MODE_C
+
 
 template <typename mtx_type> class NDMat{
 private:
     int                     type;           // data type of the matrix
     std::vector<int>        shape;          // matrix dimensions, outermost to innermost
+    std::vector<int>        increments;     // increment in data array for each element in respective dimension
     int                     dlen;           // length of data array
     std::vector<mtx_type>   data;           // vector of any specified data type, data is stored in row major vector, type depends on usage
 /*
@@ -96,7 +98,7 @@ protected:
     // check dimension compatibility for broadcasting and matrix dot product
     std::vector<int> __checkCompatibleBroadcastDim(NDMat<mtx_type> A, NDMat<mtx_type> B);    // if yes return normalized dimension for matrix with less number of dimensions
     bool __checkCompatibleDotProductDim(NDMat<mtx_type> A, NDMat<mtx_type> B);
-
+    static void __recursivePaddedVectorCopy(mtx_type* src_data, int* src_shape, int* src_inc, mtx_type* tgt_data, int* tgt_shape, int* tgt_inc, int dim_cnt);
 public:
     /*  Constructor with shape as a vector, default type is AMTX_F32, i.e, float32.
         Arguments:
