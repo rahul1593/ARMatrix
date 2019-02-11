@@ -328,9 +328,12 @@ int mtx_reshape(Matrix* A, int* shape, int dim_cnt){
         return -1;
     // reallocate old space for shape
     A->shape = (int*)realloc(A->shape, sizeof(int)*dim_cnt);
+    A->increments = (int*)realloc(A->increments, sizeof(int)*dim_cnt);
     // store new shape
-    for(i = 0; i < dim_cnt; ++i){
+    for(i = 0, dl_new = 1; i < dim_cnt; ++i){
         A->shape[i] = shape[i];
+        A->increments[dim_cnt-i-1] = dl_new;
+        dl_new *= shape[dim_cnt-i-1];
     }
     // update the dimensionality
     A->dim_cnt = dim_cnt;
