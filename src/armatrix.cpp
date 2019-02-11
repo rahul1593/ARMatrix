@@ -24,6 +24,7 @@ NDMat<mtx_type>::NDMat(const NDMat &src_mat){
     // copy the shape
     this->type = src_mat.type;
     this->shape = src_mat.shape;
+    this->increments = src_mat.increments;
     this->dlen = src_mat.dlen;
     // copy data
     this->data = src_mat.data;
@@ -34,13 +35,15 @@ NDMat<mtx_type>::NDMat(const NDMat &src_mat){
 
 template<class mtx_type>
 NDMat<mtx_type>::NDMat(std::vector<int> mshape, mtx_type init_value){
-    // check for data type
-    // to be done
+    int dl = 1;
+    int dim_cnt = mshape.size();
     this->shape = mshape;
     this->dlen = mshape[0];
-    for(int i = 1; i < mshape.size(); i++){
-        this->dlen *= mshape[i];
+    for(int i = 0; i < dim_cnt; ++i){
+        this->increments[dim_cnt-i-1] = dl;
+        dl *= mshape[dim_cnt-i-1];
     }
+    this->dlen = dl;
     // copy data
     std::vector<mtx_type> vdata(this->dlen, init_value);
     this->data = vdata;
@@ -102,6 +105,11 @@ void NDMat<mtx_type>::reshape(std::vector<int> nshape){
     if(dl_new != this->dlen) return;
     // else update the shape
     this->shape = nshape;
+    this->increments = nshape;  // assign array similar to nshape
+    for(i = 0, dl_new = 1; i < dim_cnt; ++i){
+        this->increments[dim_cnt-i-1] = dl_new;
+        dl_new *= mshape[dim_cnt-i-1];
+    }
 }
 
 // change the data type of the matrix
@@ -184,24 +192,53 @@ NDMat<mtx_type> NDMat<mtx_type>::copy(){
 }
 
 template<class mtx_type>
+void NDMat<mtx_type>::__recursivePaddedVectorCopy(mtx_type* src_data, int* src_shape, int* src_inc, 
+                                                mtx_type* tgt_data, int* tgt_shape, int* tgt_inc, int dim_cnt){
+    // copy data from source with given shape data pointer to target with given shape and data pointer
+    int padding=(tgt_shape[0]-src_shape[0])/2;
+    if(dim_cnt > 1){
+        // recursively traverse inwards
+        for(int i = padding; i < src_shape[0]+padding; ++i){
+            NDMat<mtx_type>::__recursivePaddedVectorCopy(src_data + ((i - padding) * src_inc[0]),
+                                                        src_shape + 1,
+                                                        src_inc + 1,
+                                                        tgt_data + (i * tgt_inc[0]),
+                                                        tgt_shape + 1,
+                                                        tgt_inc + 1,
+                                                        dim_cnt - 1);
+        }
+    } else {
+        // copy the innermost dimension
+        for(int i=0; i < src_shape[0]; ++i){
+            tgt_data[padding + i] = src_data[i];
+        }
+    }
+}
+
+template<class mtx_type>
 NDMat<mtx_type> NDMat<mtx_type>::copy(std::vector<int> padding){
     // create new shape vector
-    int dc = this->shape.size();
-    std::vector<int> nshape(this->shape.begin(), this->shape.end());
-    std::vector<int> vcount_t(nshape.begin(), nshape.end());
-    std::vector<int> vcount_s(nshape.begin(), nshape.end());
-    std::vector<int> vi(dc, 1);
-    // add padding for each dimensions
-    nshape[dc-1] += padding[i];
-    vcount_t[dc-1] = 1;
-    vcount_s[dc-1] = 1;
-    for(int i = dc-2; i > -1; --i){
-        nshape[i] += padding[i];
-        vcount_t[i] = vcount_t[i+1] * nshape[i+1];
-        vcount_s[i] = vcount_s[i+1] * this->shape[i];
-    }
-    NDMat<mtx_type> new_mat(nshape);
+    int dc = this->shape.size();    // dimension count
+    std::vector<int> nshape(this->shape.begin(), this->shape.end());        // new shape vector
+    std::vector<int> v_off(dc, 1);     // index offset for different dimensions
     
+    // add padding for each dimensions
+    for(int i = 0; i < dc; ++i){
+        nshape[i] += 2*padding[i];
+    }
+    // new padded matrix
+    NDMat<mtx_type> new_mat(nshape);
+
+    for(int i = padding[0]; i < this->shape[0]+padding[0]; ++i){
+        NDMat<mtx_type>::__recursivePaddedVectorCopy(this->data.begin() + ((i - padding[0]) * this->increments[0]),
+                                                    this->shape.begin()+1,
+                                                    this->increments.begin()+1,
+                                                    new_mat.data.begin() + (i * new_mat.increments[0]),
+                                                    nshape.begin()+1,
+                                                    new_mat.increments.begin()+1,
+                                                    dc-1);
+    }
+    return new_mat;
 }
 
 // create zero initialized matrix similar to current matrix
@@ -212,7 +249,24 @@ NDMat<mtx_type> NDMat<mtx_type>::zeros_like(NDMat<mtx_type> src_mat){
 
 template<class mtx_type>
 NDMat<mtx_type> NDMat<mtx_type>::slice(std::vector<Point2D> axis_min_max){  // duplicate data in new matrix
+    // new shape for the matrix
+    std::vector<mtx_type> nshape(this->shape.size());
+    for(int i=0; i < this->shape.size(); i++){
+        nshape[i] = axis_min_max[i].y - axis_min_max[i].x;
+    }
 
+    NDMat<mtx_type> new_mat(nshape);
+    // prepare offsets
+    for(int i = axis_min_max[0].x; i < axis_min_max[0].y; ++i){
+        NDMat<mtx_type>::__recursivePaddedVectorCopy(this->data.begin() + ((i - padding[0]) * this->increments[0]),
+                                                    this->shape.begin()+1,
+                                                    this->increments.begin()+1,
+                                                    new_mat.data.begin() + (i * new_mat.increments[0]),
+                                                    nshape.begin()+1,
+                                                    new_mat.increments.begin()+1,
+                                                    dc-1);
+    }
+    return new_mat;
 }
 
 template<class mtx_type>
