@@ -7,7 +7,7 @@
  * License      : LGPL2.1
  */
 
-#include "matrics.h"
+#include "armatrix.h"
 
 /*
  * Internal function declarations
