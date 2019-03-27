@@ -17,4 +17,4 @@ fi
 
 #build library with test code
 $COMPILER -o testmtx -I $INC $SRC $LIB -O3 -D$DEF
-echo $SRC "Build complete"
+echo "Build complete"
