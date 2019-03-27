@@ -209,7 +209,7 @@ void NDMat<mtx_type>::__recursivePaddedVectorCopy(mtx_type* src_data, int* src_s
         }
     } else {
         // copy the innermost dimension
-        for(int i=0; i < src_shape[0]; ++i){
+        for(int i = 0; i < src_shape[0]; ++i){
             tgt_data[padding + i] = src_data[i];
         }
     }
