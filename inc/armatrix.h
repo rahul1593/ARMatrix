@@ -284,8 +284,8 @@ typedef struct{
     int dim_cnt;        // number of dimensions
     int dlen;           // length of data array
     mtx_type* data;     // data can be of stated type, integer by default, data is stored in row major array
-	int is_sparse;		// is a sparse matrix with a lot of zeroes, eg., identity matrix
-	int** coordinates;  // store the coordinates for values in sparse matrix
+    int is_sparse;		// is a sparse matrix with a lot of zeroes, eg., identity matrix
+    int** coordinates;  // store the coordinates for values in sparse matrix
 } Matrix;
 
 
